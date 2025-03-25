@@ -1,31 +1,25 @@
-# ActiveMQ JMS Server
+# ActiveMQ JMS Client
 
-This ActiveMQ server application consumes JMS messages from a specified queue and processes audit messages, backups, and handles scenarios for failed message retries using scheduled tasks. The server integrates seamlessly with Apache ActiveMQ Artemis and PostgreSQL for persistent storage.
+## Entity Audit Messaging Library
+This library allows you to send structured audit messages (like `Entity`) to an Apache ActiveMQ Artemis queue using Spring Boot and optionally store failed sends to PostgreSQL.
 
----
+We are using a **Circuit Breaker** to handle situations when ActiveMQ is down or the queue is full. More details can be found in the provided ZIP archive.
 
-## 🚀 Features
-- Consumes JMS messages from ActiveMQ Artemis queues.
-- Scheduled processing of failed JMS messages.
-- Conditional activation of message listeners and schedulers.
-- Automatic retry and cleanup mechanisms.
-- JSON-based message processing.
-- Configurable schedules and batch processing capabilities.
+🚀 **Features**
+- Send audit logs to JMS queues (ActiveMQ Artemis)
+- Circuit Breaker integration for improved resilience
+- Fallback mechanism to PostgreSQL when ActiveMQ is unavailable or queue capacity is reached
+- Easily build audit models via factory
+- Includes unit tests with JUnit & Mockito
 
----
-
-## 🧱 Requirements
+🧱 **Requirements**
 - Java 17+
-- Spring Boot 3+
-- Apache ActiveMQ Artemis (via Docker)
-- PostgreSQL Database (via Docker)
 - Maven
+- Docker (for Artemis & PostgreSQL setup)
 
----
+🐳 **Docker Setup**
 
-## 🐳 Docker Setup
-
-### 🔸 ActiveMQ Artemis
+🔸 **ActiveMQ Artemis**
 ```bash
 docker run -d \
   --name artemis \
@@ -36,11 +30,10 @@ docker run -d \
   -e ANONYMOUS_LOGIN=false \
   apache/activemq-artemis:latest
 ```
+Web Console: [http://localhost:8161](http://localhost:8161)  
+Username: `admin`, Password: `admin`
 
-- Web Console: [http://localhost:8161](http://localhost:8161)  
-  Username: `admin`, Password: `admin`
-
-### 🔸 PostgreSQL
+🔸 **PostgreSQL (optional - for failed audit storage)**
 ```bash
 docker run -d \
   --name postgres-jms \
@@ -51,9 +44,7 @@ docker run -d \
   postgres
 ```
 
----
-
-## ⚙️ Configuration (`application.properties`)
+🛠️ **Configuration (`application.properties`)**
 ```properties
 # ActiveMQ Artemis
 spring.artemis.mode=native
@@ -62,90 +53,54 @@ spring.artemis.port=61616
 spring.artemis.user=admin
 spring.artemis.password=admin
 
-# JMS Queue Configuration
-queue.name=entity.queue
+# Audit Queue Name
+audit.queue.name=audit.entity.queue
 
-# PostgreSQL Configuration
-spring.datasource.url=jdbc:postgresql://localhost:5433/jmsdb
+# PostgreSQL (if storing failed messages)
+spring.datasource.url=jdbc:postgresql://localhost:5432/jmsdb
 spring.datasource.username=postgres
 spring.datasource.password=postgres
 spring.jpa.hibernate.ddl-auto=update
-
-# Scheduler Configuration
-entity.listener.enabled=true
-failed.message.processor.delay=30000
 ```
 
----
-
-## 🔄 Included Components
-- **JMS Consumer Listener**
-    - Listens and processes messages from the specified queue.
-
-- **Failed JMS Message Scheduler**
-    - Automatically retries processing of messages that initially failed.
-
-- **Backup and Recovery Scheduler**
-    - Periodically backs up critical messages or audit logs.
-
----
-
-## ✏️ Conditional Listener and Scheduler Setup
-
-Components can be conditionally activated:
-
-Enable JMS Listener and Scheduler:
-```properties
-entity.listener.enabled=true
-```
-
-Disable JMS Listener and Scheduler:
-```properties
-entity.listener.enabled=false
-```
-
----
-
-## 📌 JMS Listener Example
-
-```java
-@Component
-@ConditionalOnProperty(name = "entity.listener.enabled", havingValue = "true")
-public class AuditMessageListener {
-
-    @JmsListener(destination = "${queue.name}")
-    public void receive(String message) {
-        // Message processing logic
-    }
-}
-```
-
----
-
-## 🧪 Running Tests
-
-Run unit tests:
+🧪 **Run Tests**
 ```bash
 mvn test
 ```
 
----
+✉️ **Example Usage**
+```java
+@Autowired
+private EntityAuditQueuePublisher publisher;
 
-## 📦 Packaging and Deployment
+@Autowired
+private AuditFactory auditFactory;
 
-To package and install locally:
+EntityAudit audit = auditFactory.createEntityAudit("Customer", 101L, "created new record");
+publisher.publish(audit);
+```
+
+✅ **Verifying Queue Messages (via Web Console)**
+- Go to: [http://localhost:8161](http://localhost:8161)
+- Login as `admin`
+- Click on **Queues**
+- Select `audit.entity.queue`
+- Browse or purge messages
+
+📦 **Packaging as Library**
+To build and install the JAR locally:
 ```bash
 mvn clean install
 ```
-
-To run the application:
-```bash
-mvn spring-boot:run
+In another project:
+```xml
+<dependency>
+  <groupId>com.platform.audit</groupId>
+  <artifactId>audit-messaging-lib</artifactId>
+  <version>1.0.0</version>
+</dependency>
 ```
 
----
-
-## 📫 Contributions
-
-Contributions are welcome! Feel free to submit pull requests or open issues to suggest improvements or report bugs.
+📫 **Contributions**
+Feel free to fork and contribute with improvements, bug fixes, or new features.
 
